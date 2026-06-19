@@ -21,6 +21,7 @@ import __init__
 import zmq
 import ctypes
 import time
+import tmf8829_gesture as gesture
 
 from zeromq.tmf8829_zeromq_common import *
 
@@ -283,7 +284,7 @@ if __name__ == "__main__":
         script_location = sys.executable
     else:
         script_location = os.path.abspath(__file__)
-        debugMsg = True
+        # debugMsg = True
         
     script_location = os.path.dirname(script_location) 
    
@@ -352,27 +353,36 @@ if __name__ == "__main__":
     _cfg_dict = RegConv.readPageToDict(_cfg_bytes, Tmf8829ConfigRegs())     # convert bytestream to dictionary
     Tmf8829Logger.patch_dict( _cfg_dict, cfg["measure_cfg"] )               # external read config overwrites default config
     _cfg_bytes2 = RegConv.readDictToPage( _cfg_dict, Tmf8829ConfigRegs())   # bytearray
-    client.set_config( _cfg_bytes2 )                                        # attempt to set configuration 
+    if not client.set_config( _cfg_bytes2 ):                                        # attempt to set configuration 
+        print("Please start GUI after this script - this script need to configure TMF8829 on its own")
+        time.sleep(2)
+        exit(1)
     _cfg_bytes = client.get_config()                                        # now in case we were not the 1st client, config might not have happened so read it back 
     _cfg_dict = RegConv.readPageToDict(_cfg_bytes, Tmf8829ConfigRegs())     # convert bytestream to dictionary
    
-    tmf8829logger.dumpConfiguration( _cfg_dict )
+    if cfg["log_data"]:
+        tmf8829logger.dumpConfiguration( _cfg_dict )
 
     info = {}
     info["host version"] = list(dev_info.hostVersion)
     info["fw version"] = list(dev_info.fwVersion)
     info["logger version"] = client.VERSION
     info["serial number"] = dev_info.deviceSerialNumber
-    tmf8829logger.dumpInfo(info)
+    if cfg["log_data"]:
+        tmf8829logger.dumpInfo(info)
 
-    if _cfg_dict["select"] >= 1:
+    if _cfg_dict["select"] >= 1 and debugMsg:
         print("The result frames have the distance in 0.25mm, but will be logged in mm! ")
 
+    #####################################################
+    # Gesture detection functions
+    #####################################################
+    recognizer = gesture.DToFGestureRecognizer()
 
     if client.start_measurement():
         try:
             cnt = 0
-            while cnt < cfg["record_frames"]:
+            while cnt < cfg["record_frames"] or cfg["log_data"] == 0:
                 zmq_result_data = client.get_result_data()
                 zmqheader = tmf8829ContainerFrameHeader.from_buffer_copy(bytearray(zmq_result_data[0:ctypes.sizeof(tmf8829ContainerFrameHeader)]))
                 if debugMsg:
@@ -386,7 +396,9 @@ if __name__ == "__main__":
                             print( "FID={}, FP={}, FNr={}".format(fId, fpMode, int.from_bytes(bytes=r[5+4:5+4+4],byteorder='little', signed=False)))
 
                 cnt += 1
-                print( "Set={} #resultFrames={} #histoFrames={} #refFrames={}".format(cnt,len(resultFrame),len(histoFrames),len(refFrame)))
+                if debugMsg:
+                    print( "Set={} #resultFrames={} #histoFrames={} #refFrames={}".format(cnt,len(resultFrame),len(histoFrames),len(refFrame)))
+                print(cnt, '\r', end="")  # stay pretty quiet
                 if cfg["logging"]["combined_results"]:
 
                     _toMM = False
@@ -430,22 +442,32 @@ if __name__ == "__main__":
                         else:
                             refhistogramResults, histogramResults = Tmf8829AppCommon.getAllHistogramResults(histoFrames)
                     
-                    tmf8829logger.dumpMeasurement(pixel_results=pixelResults, \
-                        pixel_histograms=histogramResults, reference_pixel_histograms=refhistogramResults,
-                        pixel_histograms_HA=histogramResultsHA, reference_pixel_histograms_HA=refhistogramResultsHA,
-                        reference_spad_frames=refFrame, measurement_info=res_info)
+                    if cfg["log_data"]:
+                        tmf8829logger.dumpMeasurement(pixel_results=pixelResults, \
+                            pixel_histograms=histogramResults, reference_pixel_histograms=refhistogramResults,
+                            pixel_histograms_HA=histogramResultsHA, reference_pixel_histograms_HA=refhistogramResultsHA,
+                            reference_spad_frames=refFrame, measurement_info=res_info)
+                    
+                    #####################################################
+                    # Process distance results
+                    #####################################################
+                    recognizer.process_tmf8829_frame(pixelResults)
+
+
                 else:
-                    for frame in histoFrames:
-                        tmf8829logger.dumpFrame(frame)
-                    for frame in resultFrame:
-                        tmf8829logger.dumpFrame(frame)
-                    for frame in refFrame:
-                        tmf8829logger.dumpFrame(frame)
+                    if cfg["log_data"]:
+                        for frame in histoFrames:
+                            tmf8829logger.dumpFrame(frame)
+                        for frame in resultFrame:
+                            tmf8829logger.dumpFrame(frame)
+                        for frame in refFrame:
+                            tmf8829logger.dumpFrame(frame)
 
         except KeyboardInterrupt:
             pass
         except:
-                tmf8829logger.dumpInfo({"Exception": "Get data from server"})
+                if cfg["log_data"]:
+                    tmf8829logger.dumpInfo({"Exception": "Get data from server"})
                 print( "Exception:Get data from server  !!!!!!")
     else:
         print( "Only Logger and no measurement is running, exiting")
@@ -460,10 +482,12 @@ if __name__ == "__main__":
             client.disconnect_linux()
     
     except:
-        tmf8829logger.dumpInfo({"Exception": "Stop leave and disconnect from server"})
+        if cfg["log_data"]:
+            tmf8829logger.dumpInfo({"Exception": "Stop leave and disconnect from server"})
         print( "Exception: Stop Server !!!!!!")
 
-    tmf8829logger.dumpToJsonFile(compressed=False)
+    if cfg["log_data"]:
+        tmf8829logger.dumpToJsonFile(compressed=False)
 
     print( "End" )
     time.sleep(2)

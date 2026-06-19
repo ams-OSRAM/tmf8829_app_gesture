@@ -1,102 +1,77 @@
-# Python files for the tmf8829 device 
+# Gesture demo application
 
-Python version 3.10.11 or higher is required.
+Implementation of a simple gesture detection application, which can operate together with 
+[TMF8829_EVM_DB_DEMO](https://ams-osram.com/products/boards-kits-accessories/kits/ams-tmf8829-evm-db-demo-evaluation-kit)
+or [TMF8829_EVM_EB_SHIELD](https://ams-osram.com/products/boards-kits-accessories/kits/ams-tmf8829-evm-eb-shield-evaluation-kit).
 
-## Virtual environment
+![Demo video](./media/operation.gif)
 
-Recommendation is to set-up a virtual environment. Open your favourite Windows PowerShell, VisualStudio Code etc.
-To install a virtual environment named env, and use it:   
-python -m venv env    
-./env/Scripts/Activate.ps1    
+## Setup
+
+* TMF8829 device
+* 3-20 cm detection range - defined in [tmf8829_gesture.py](./tmf8829/zeromq/tmf8829_gesture.py)
+* 10 fps data rate - defined in [cfg_client.json](./tmf8829/zeromq/cfg_client.json)
+
+## Gesture vocabulary
+4 detections
+- Swipe left
+- Swipe right
+- Palm move near
+- Palm move far
+
+Due to limited vocabulary and close range use 8x8 mode only.
+
+
 
 ## Requirements
 
-To run the scripts in this folder you need to install the packages in the requirements.txt file with:    
+### Virtual environment
+
+Recommendation is to set-up a virtual environment. Open your favourite Windows PowerShell, VisualStudio Code etc.
+To install a virtual environment named env, and use it:   
+python -m venv env
+./env/Scripts/Activate.ps1
+
+### Install libraries
+
+Python version 3.10.11 or higher is required.
+
+To run the scripts in this folder you need to install the packages in the requirements.txt file with:
+```bash
 pip install -r requirements.txt
+```
 
-All needed python packages are in the subdirectory packages.
+All required python packages are inside the subdirectory packages.
 
-## Folder and sub-folders:
+## Usage
 
-### ./packages
-Needed python packages.
+See folder [tmf8829/zeromq/](./tmf8829/zeromq/) - this is the location of [tmf8829_gesture.py](./tmf8829/zeromq/tmf8829_gesture.py),
+where the gesture logic is defined, but execute gesture demo with tmf8829_zeromq_client.py.
 
+If you are using [TMF8829_EVM_EB_SHIELD](https://ams-osram.com/products/boards-kits-accessories/kits/ams-tmf8829-evm-eb-shield-evaluation-kit), 
+start [tmf8829_zeromq_server.py](./tmf8829/zeromq/tmf8829_zeromq_server.py) first; this can be done with 
+the pre-compiled server file from [TMF8829_Driver_ZMQ_Server_Client_EXE_\<latest version\>.zip](https://ams-osram.com/tmf8829) or inside a separate shell
+```python
+python tmf8829/zeromq/tmf8829_zeromq_server.py
+```
 
-### ./tmf8829
-All python classes, files and functions, specific to the TMF8829.
+If you are using [TMF8829_EVM_DB_DEMO](https://ams-osram.com/products/boards-kits-accessories/kits/ams-tmf8829-evm-db-demo-evaluation-kit), 
+no additional server needs to be started.
 
-##### tmf8829_application.py, tmf8829_application_common.py and tmf8829_bootloader.py:
-The application and bootloader classes have the functionality to control the device hardware and the bootloader and also allows to download intel hex files to the device, measurements and the reading of result and histogram frames.
+Start the application itself:
+```python
+python tmf8829/zeromq/tmf8829_zeromq_client.py
+```
 
-##### tmf8829_application defines.py:
-Application specific defines and structures.
+Notes:
+ - The EVM GUI can be used in parallel to this application, but needs to be started AFTER [tmf8829_zeromq_client.py](./tmf8829/zeromq/tmf8829_zeromq_client.py)
 
-##### tmf8829_conv.py:
-Contains convenience functions.
+### Configuration
 
-#### Python register files
+Update file [cfg_client.json](./tmf8829/zeromq/cfg_client.json):
+- Parameter **period** [in ms] to modify speed of detection. 
+- Parameter **iterations** [in k iterations] is used to change performance of detection; for short range (like 10cm-20cm) 10 or 100 is ok.
 
-##### tmf8829_host_regs.py 
-The registers of the Tmf8829 which could be written over I2C or SPI.
+# Info
 
-##### tmf8829_application_registers.py:
-Application specific registers.
-
-##### tmf8829_config_page.py:
-Application configuration register page.
-
-### ./tmf8829/examples
-Several examples that show the usage of how to:
-- use the application printer to see results/frames in the terminal
-- visualize pixel results or histograms 
-- log data into a file with json format.
-
-### ./tmf8829/utilities
-
-##### tmf8829_application_printer.py:
-The application printer class supports the printing of the results and histogram frames.
-
-##### tmf8829_json_2_csv.py
-Convert log files from json format to csv format
-
-##### tmf8829_logger_service.py
-Provides functionality to dump the data into a file with json format or to log data into a textfile.
-
-
-##### tmf8829_visualisation.py
-Functionality to visualize pixel data or histograms.
-
-### ./tmf8829/zeromq
-
-zeroMQ is an open source universal messaging library.
-zeroMq server implementations for the tmf8829 EVMs are available and for host interaction a zeroMq client.
-
-##### TMF8829_zeromq_protocol.md
-The protocol description.
-
-##### tmf8829_host_com_reg.py
-The definition of the protocol header.
-
-##### tmf8829_zeromq_common.py
-Common functions for the client and server.
-
-##### tmf8829_zeromq_client.py
-Client that could be used as active or passive logger
-
-##### tmf8829_zeromq_server_core.py
-Common functions for the different server scripts.
-
-##### tmf8829_zeromq_server.py
-Server for the EVM shield board.
-
-##### tmf8829_zeromq_server_linux.py
-Server for the evm linux board.
-
-##### tmf8829_zeromq_server_arduino.py
-Server for the Arduino board.
-
-##### cfg_client.json
-TMF8829 configuration for active logging and general logging parameters.
-
-##### cfg_server.json
-TMF8829 configuration at startup of the server.
+This is a fork of [tmf8829_driver_python](https://github.com/ams-OSRAM/tmf8829_driver_python) modifying files to create an application, which can run together with TMF8829_EVM_DB_DEMO or TMF8829_EVM_EB_SHIELD.
