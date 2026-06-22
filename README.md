@@ -21,7 +21,7 @@ or [TMF8829_EVM_EB_SHIELD](https://ams-osram.com/products/boards-kits-accessorie
 
 Due to limited vocabulary and close range use 8x8 mode only.
 
-
+For an implementation adding Swipe Up / Swipe Down, please see https://github.com/ams-OSRAM/tmf8829_app_gesture/tree/add_up_down_gestures
 
 ## Requirements
 
