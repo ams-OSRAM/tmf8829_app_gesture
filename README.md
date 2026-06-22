@@ -13,9 +13,11 @@ or [TMF8829_EVM_EB_SHIELD](https://ams-osram.com/products/boards-kits-accessorie
 * 10 fps data rate - defined in [cfg_client.json](./tmf8829/zeromq/cfg_client.json)
 
 ## Gesture vocabulary
-4 detections
+6 detections
 - Swipe left
 - Swipe right
+- Swipe up
+- Swipe down
 - Palm move near
 - Palm move far
 

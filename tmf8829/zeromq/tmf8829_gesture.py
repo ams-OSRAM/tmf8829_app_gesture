@@ -27,6 +27,7 @@ class DToFGestureRecognizer:
         
         # History buffers
         self.x_com_history = []
+        self.y_com_history = []
         self.z_history = []
         self.cooldown_counter = 0
 
@@ -44,13 +45,14 @@ class DToFGestureRecognizer:
             self.cooldown_counter -= 1
             return None
 
-        # 1. Filter data within the 10-20 cm range
+        # 1. Filter data within the range
         mask = (frame >= self.min_dist) & (frame <= self.max_dist)
         valid_pixel_count = np.sum(mask)
 
         # If the hand leaves the field of view, clear history
         if valid_pixel_count < self.min_pixels:
             self.x_com_history.clear()
+            self.y_com_history.clear()
             self.z_history.clear()
             return None
 
@@ -59,15 +61,21 @@ class DToFGestureRecognizer:
         col_counts = np.sum(mask, axis=0)
         x_com = np.sum(col_counts * np.arange(8)) / valid_pixel_count
 
+        # Y Center of Mass (0.0 = Top, 7.0 = Bottom)
+        row_counts = np.sum(mask, axis=1)
+        y_com = np.sum(row_counts * np.arange(8)) / valid_pixel_count
+
         # Average Depth of the hand
         avg_dist = np.mean(frame[mask])
 
         # Update history buffers
         self.x_com_history.append(x_com)
+        self.y_com_history.append(y_com)
         self.z_history.append(avg_dist)
 
         if len(self.x_com_history) > self.buffer_size:
             self.x_com_history.pop(0)
+            self.y_com_history.pop(0)
             self.z_history.pop(0)
 
         # 3. Classify Gesture (only when buffer is full)
@@ -83,20 +91,28 @@ class DToFGestureRecognizer:
     def _classify(self):
         # Calculate total delta across the buffer window (current minus oldest)
         dx = self.x_com_history[-1] - self.x_com_history[0]
+        dy = self.y_com_history[-1] - self.y_com_history[0]
         dz = self.z_history[-1] - self.z_history[0]
 
         # Tuning Thresholds
         X_THRESHOLD = 1.5  # Columns shifted (out of 8)
+        Y_THRESHOLD = 1.5  # Rows shifted (out of 8)
         Z_THRESHOLD = 2.5  # Centimeters changed (out of 10)
 
         # Determine dominant movement axis
-        if abs(dx) > X_THRESHOLD and abs(dx) > abs(dz):
+        if abs(dx) > X_THRESHOLD and abs(dx) > abs(dy) and abs(dx) > abs(dz):
             if dx < 0:
                 return "Swipe left"
             else:
                 return "Swipe right"
 
-        if abs(dz) > Z_THRESHOLD and abs(dz) > abs(dx):
+        if abs(dy) > Y_THRESHOLD and abs(dy) > abs(dx) and abs(dy) > abs(dz):
+            if dy < 0:
+                return "Swipe up"
+            else:
+                return "Swipe down"
+
+        if abs(dz) > Z_THRESHOLD and abs(dz) > abs(dx) and abs(dz) > abs(dy):
             if dz < 0:
                 return "Palm move near"
             else:
@@ -106,6 +122,7 @@ class DToFGestureRecognizer:
 
     def _clear_buffers(self):
         self.x_com_history.clear()
+        self.y_com_history.clear()
         self.z_history.clear()
 
     
