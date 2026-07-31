@@ -32,7 +32,7 @@ from aos_com.register_io import ctypes2Dict
 class ZeroMqClient:
     """ZeroMQ client"""
    
-    VERSION = 0x0004
+    VERSION = 0x0005
     """Version 
     - 1 First zeromq client release version
     - 2 Second logger versions
@@ -45,6 +45,7 @@ class ZeroMqClient:
         fix, check if filename exists also for gz files
         for storage use os pathname
         store 3d point cloud values and distance
+    - 5 fov correction
     """
 
     def __init__(self) -> None:
@@ -275,9 +276,7 @@ if __name__ == "__main__":
         "record_frames":3
     }
     #####################################################
-    CONFIG_FILE = "./cfg_client.json"
-    if use_linux_server:
-        CONFIG_FILE = "/cfg_client.json"
+    CONFIG_FILE = "cfg_client.json"
     
     # exe or script
     if getattr(sys, 'frozen', False): 
@@ -289,7 +288,7 @@ if __name__ == "__main__":
     script_location = os.path.dirname(script_location) 
    
     tmf8829logger = Tmf8829Logger()
-    cfg = tmf8829logger.readCfgFile(filePathName=script_location + CONFIG_FILE, in_config=default_client_cfg)
+    cfg = tmf8829logger.readCfgFile(filePathName=os.path.join(script_location,CONFIG_FILE), in_config=default_client_cfg)
 
     client = ZeroMqClient()
     localHostAvailable =False
@@ -406,7 +405,10 @@ if __name__ == "__main__":
                     if _cfg_dict["select"] >= 1:
                         _toMM = True
 
-                    pixelResults = Tmf8829AppCommon.getFullPixelResult(frames=resultFrame, toMM=_toMM, pointCloud=False, distanceToXYZ=True)
+                    _fov_Corr = _cfg_dict["fov_correction"]
+
+                    pixelResults = Tmf8829AppCommon.getFullPixelResult(frames=resultFrame, toMM=_toMM, pointCloud=False, \
+                                                                        distanceToXYZ=True, fov_correction= _fov_Corr)
 
                     # log the header of the first result frame
                     fheader = tmf8829FrameHeader.from_buffer_copy( bytearray(resultFrame[0])[Tmf8829AppCommon.PRE_HEADER_SIZE: \
